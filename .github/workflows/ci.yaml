@@ -1,0 +1,122 @@
+name: ci
+run-name: ${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_number }}
+
+on:
+  workflow_call:
+    inputs:
+      push:
+        description: "docker push"
+        required: false
+        default: true
+        type: boolean
+      run:
+        description: "docker run"
+        required: false
+        default: false
+        type: boolean
+      target:
+        description: "build target"
+        required: true
+        type: string
+      build_platforms:
+        description: "build platforms"
+        required: false
+        default: "linux/amd64"
+        type: string
+      directory:
+        description: "directory"
+        required: true
+        type: string
+env:
+  REGISTRY_URL: "ghcr.io"
+  IMAGE_NAME: "shaked/${{ github.event.repository.name }}"
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set docker image name
+        run: echo "DOCKER_IMAGE=${{ env.REGISTRY_URL }}/${{ env.IMAGE_NAME }}/${{ inputs.target }}" >> $GITHUB_ENV
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        env:
+          DOCKER_IMAGE: ${{ env.DOCKER_IMAGE }}
+        with:
+          images: |
+            ${{ env.DOCKER_IMAGE }}
+          tags: |
+            type=sha,priority=300,enable=true
+            latest
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ env.REGISTRY_URL }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Save poetry credentials
+        run: |
+          echo ${{ secrets.POETRY_AUTH_USER }} > /tmp/poetry_auth_user
+          echo ${{ secrets.POETRY_AUTH_PASS }} > /tmp/poetry_auth_password
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver: "docker-container"
+
+      - name: poetry cache
+        uses: ./.github/actions/local-docker-cache
+        with:
+          name: poetry
+          key_path: "${{ inputs.directory }}/Dockerfile"
+
+      - name: Extract branch name
+        shell: bash
+        run: |
+          branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/**/}}
+          echo "branch=${branch////-}" >> $GITHUB_OUTPUT
+        id: extract_branch
+
+      - name: Build and push image
+        id: build-and-push
+        uses: docker/build-push-action@v5
+        with:
+          cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}/cache:build-${{ steps.extract_branch.outputs.branch }}
+          cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}/cache:build-${{ steps.extract_branch.outputs.branch }},mode=max
+          context: ${{ inputs.directory }}
+          file: ${{ inputs.directory }}/Dockerfile
+          push: ${{ inputs.push }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          secret-files: |
+            POETRY_AUTH_USER=/tmp/poetry_auth_user
+            POETRY_AUTH_PASS=/tmp/poetry_auth_password
+          target: ${{ inputs.target }}
+          platforms: ${{ inputs.build_platforms }}
+
+      - name: Install Cosign
+        if: ${{ inputs.push }}
+        uses: sigstore/cosign-installer@v3.5.0
+
+      - name: Sign image
+        if: ${{ inputs.push }}
+        run: cosign sign --yes ${{ env.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }}
+
+      - name: Run image
+        if: ${{ inputs.run }}
+        run: docker run ${{ env.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }}
+
+      - name: Print image tag
+        run: |
+          echo '🚀 Project ${{ inputs.directory }} image was built successfully! ' >> $GITHUB_STEP_SUMMARY

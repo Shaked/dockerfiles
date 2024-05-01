@@ -1,0 +1,22 @@
+name: 'Local Github Cache with Docker'
+description: 'Local Github Cache with Docker'
+inputs:
+  name:
+    description: "Local cache name"
+    required: true
+  key_path:
+    description: "Local cache key path"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: ${{ inputs.name.capitalize }} Build Cache for Docker
+      uses: actions/cache@v3
+      with:
+        path: ${{ inputs.name }}-build-cache
+        key: ${{ runner.os }}-${{ inputs.name }}-build-cache-${{ hashFiles(inputs.key_path) }}
+
+    - name: inject ${{ inputs.name }}-build-cache into docker
+      uses: reproducible-containers/buildkit-cache-dance@v2.1.2
+      with:
+        cache-source: ${{ inputs.name }}-build-cache

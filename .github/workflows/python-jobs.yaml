@@ -1,0 +1,39 @@
+name: cicd
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "python/**"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit-test:
+    name: Unit tests
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: ./.github/workflows/ci.yaml
+    secrets: inherit
+    with:
+      push: true
+      run: true
+      target: unit-test
+      directory: python
+
+  build-and-push:
+    name: Build and push
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    needs: unit-test
+    uses: ./.github/workflows/ci.yaml
+    secrets: inherit
+    with:
+      push: true
+      run: false
+      target: dist-api
+      directory: python
