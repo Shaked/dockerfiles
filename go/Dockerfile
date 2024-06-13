@@ -13,7 +13,6 @@ FROM golang:1.21 AS base
     COPY --parents cmd internal ./
 
 FROM base AS test
-
     ENTRYPOINT [ "go" ]
     CMD [ "test", "./...", "-v", "-coverprofile", "cover.out" ]
 
