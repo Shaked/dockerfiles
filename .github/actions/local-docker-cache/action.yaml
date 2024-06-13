@@ -11,12 +11,20 @@ runs:
   using: "composite"
   steps:
     - name: ${{ inputs.name.capitalize }} Build Cache for Docker
-      uses: actions/cache@v3
+      uses: actions/cache@v4
+      id: cache
       with:
-        path: ${{ inputs.name }}-build-cache
-        key: ${{ runner.os }}-${{ inputs.name }}-build-cache-${{ hashFiles(inputs.key_path) }}
+        path: |
+          ${{ inputs.name }}-lib-cache
+          ${{ inputs.name }}-build-cache
+        key: ${{ runner.os }}-${{ inputs.name }}-cache-${{ hashFiles(inputs.key_path) }}
 
     - name: inject ${{ inputs.name }}-build-cache into docker
-      uses: reproducible-containers/buildkit-cache-dance@v2.1.2
+      uses: reproducible-containers/buildkit-cache-dance@v3
       with:
-        cache-source: ${{ inputs.name }}-build-cache
+        cache-map: |
+          {
+            "${{ inputs.name }}-lib-cache": "/root/.cache/${{ inputs.name }}-lib",
+            "${{ inputs.name }}-build-cache": "/root/.cache/${{ inputs.name }}-build"
+          }
+        skip-extraction: ${{ steps.cache.outputs.cache-hit }}

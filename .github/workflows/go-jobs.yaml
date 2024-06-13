@@ -1,10 +1,10 @@
-name: Python Pipeline
+name: Go Pipeline
 
 on:
   push:
     branches: ["main"]
     paths:
-      - "python/**"
+      - "go/**"
   pull_request:
   workflow_dispatch:
 
@@ -20,8 +20,8 @@ jobs:
     with:
       push: true
       run: true
-      target: unit-test
-      directory: python
+      target: test
+      directory: go
 
   build-and-push:
     name: Build and push
@@ -35,5 +35,5 @@ jobs:
     with:
       push: true
       run: false
-      target: dist-api
-      directory: python
+      target: runner
+      directory: go

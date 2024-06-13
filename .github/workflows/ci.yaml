@@ -27,6 +27,16 @@ on:
         description: "directory"
         required: true
         type: string
+      python_cache:
+        description: "python cache"
+        required: false
+        default: false
+        type: boolean
+      go_cache:
+        description: "go cache"
+        required: false
+        default: false
+        type: boolean
 env:
   REGISTRY_URL: "ghcr.io"
   IMAGE_NAME: "shaked/${{ github.event.repository.name }}"
@@ -76,10 +86,18 @@ jobs:
           driver: "docker-container"
 
       - name: poetry cache
+        if: ${{ inputs.python_cache }}
         uses: ./.github/actions/local-docker-cache
         with:
           name: poetry
           key_path: "${{ inputs.directory }}/Dockerfile"
+
+      - name: go cache
+        if: ${{ inputs.go_cache }}
+        uses: ./.github/actions/local-docker-cache
+        with:
+          name: go
+          key_path: "${{ inputs.directory }}/go.sum"
 
       - name: Extract branch name
         shell: bash
