@@ -22,6 +22,7 @@ jobs:
       run: true
       target: unit-test
       directory: python
+      python_cache: true
 
   build-and-push:
     name: Build and push
@@ -37,3 +38,4 @@ jobs:
       run: false
       target: dist-api
       directory: python
+      python_cache: true
