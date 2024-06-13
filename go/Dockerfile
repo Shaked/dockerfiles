@@ -25,7 +25,7 @@ FROM base AS builder
         --mount=type=cache,target="$GOCACHE" \
         GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o manager cmd/main.go
 
-    FROM gcr.io/distroless/static:nonroot AS runner
+FROM gcr.io/distroless/static:nonroot AS runner
     WORKDIR /
     COPY --from=builder /workspace/manager .
     USER 65532:65532
